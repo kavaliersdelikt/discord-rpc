@@ -63,6 +63,12 @@ function App() {
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [tempClientId, setTempClientId] = useState('');
   const [message, setMessage] = useState<string>('Loading your workspace...');
+  const [logs, setLogs] = useState<string[]>([]);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const addLog = (entry: string) => {
+    setLogs((prev) => [`${new Date().toLocaleTimeString()}: ${entry}`, ...prev].slice(0, 30));
+  };
 
   const activePreset = useMemo(() => {
     if (!store) return null;
@@ -87,6 +93,7 @@ function App() {
     });
     setTempClientId(clientId || '');
     setMessage('Ready to build your presence.');
+    addLog('Workspace loaded successfully.');
   };
 
   const saveStore = async (updates: Partial<StoreData>) => {
@@ -94,34 +101,47 @@ function App() {
     const merged = { ...store, ...updates } as StoreData;
     await Promise.all(Object.entries(updates).map(([key, value]) => window.electron.invoke('store/set', key, value)));
     setStore(merged);
+    addLog(`Saved store key(s): ${Object.keys(updates).join(', ')}`);
   };
 
   const connectDiscord = async (clientId: string) => {
     const trimmed = clientId.trim();
     if (!trimmed) {
       setMessage('Enter a Discord application Client ID to connect.');
+      addLog('Connection aborted: Client ID is empty.');
       return false;
     }
     if (!/^\d{17,20}$/.test(trimmed)) {
       setMessage('Invalid Client ID format. It should be a number with 17-20 digits.');
+      addLog('Connection aborted: Client ID format invalid.');
       return false;
     }
+    setIsConnecting(true);
     setMessage('Connecting to Discord...');
-    const result = await window.electron.invoke('rpc/connect', trimmed);
+    addLog(`Attempting Discord connection for Client ID ${trimmed}.`);
+    const connectPromise = window.electron.invoke('rpc/connect', trimmed);
+    const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) => {
+      setTimeout(() => resolve({ success: false, error: 'Connection timed out. Ensure Discord is running and try again.' }), 15000);
+    });
+    const result = await Promise.race([connectPromise, timeoutPromise]);
+    setIsConnecting(false);
     if (result.success) {
       setRpcStatus({ connected: true, clientId: trimmed });
       await saveStore({ clientId: trimmed });
       setMessage('Connected to Discord RPC. Your presence is ready to deploy.');
+      addLog('Connected to Discord RPC successfully.');
       return true;
     }
     setRpcStatus({ connected: false, clientId: '' });
     setMessage(`Connection failed: ${result.error}. Check your Client ID and ensure Discord is running.`);
+    addLog(`Discord connect failed: ${result.error}`);
     return false;
   };
 
   const applyPresence = async (preset: Preset) => {
     if (!rpcStatus.connected) {
       setMessage('Please connect to Discord before applying a presence.');
+      addLog('Apply presence blocked: no Discord connection.');
       return;
     }
 
@@ -136,17 +156,21 @@ function App() {
       startTimestamp: preset.useTimestamp ? preset.startTimestamp || Date.now() : undefined,
     };
 
+    addLog('Sending presence update to Discord...');
     const result = await window.electron.invoke('rpc/update', presence);
     if (result.success) {
       setMessage('Presence successfully sent to Discord. Your activity is live.');
+      addLog('Presence updated successfully.');
     } else {
       setMessage(`Failed updating presence: ${result.error}`);
+      addLog(`Presence update failed: ${result.error}`);
     }
   };
 
   const clearPresence = async () => {
     await window.electron.invoke('rpc/clear');
     setMessage('Discord presence cleared. Ready for your next setup.');
+    addLog('Discord presence cleared.');
   };
 
   const selectImage = async (field: 'largeImage' | 'smallImage') => {
@@ -164,11 +188,13 @@ function App() {
       },
     } as Preset;
 
+    const updatedPresets = store.presets.map((item) => (item.id === updated.id ? updated : item));
     setStore({
       ...store,
-      presets: store.presets.map((item) => (item.id === updated.id ? updated : item)),
+      presets: updatedPresets,
     });
-    window.electron.invoke('store/set', 'presets', store.presets.map((item) => (item.id === updated.id ? updated : item)));
+    await window.electron.invoke('store/set', 'presets', updatedPresets);
+    addLog(`Updated ${field} for preset ${updated.name}.`);
   };
 
   const addPreset = () => {
@@ -200,25 +226,27 @@ function App() {
   const completeOnboarding = async () => {
     if (!tempClientId.trim()) {
       setMessage('Enter your Discord application Client ID to continue.');
+      addLog('Onboarding blocked: Client ID empty.');
       return;
     }
+    setMessage('Completing onboarding...');
+    addLog('Completing onboarding with provided Client ID.');
     await saveStore({ onboardingComplete: true, clientId: tempClientId });
     setStore((prev) => (prev ? { ...prev, onboardingComplete: true, clientId: tempClientId } : prev));
     setMessage('Onboarding complete. Connect and start your first presence.');
-    await connectDiscord(tempClientId);
   };
 
   useEffect(() => {
     loadStore();
-    window.electron.on('rpc-status', (status: any) => {
+    const handleRpcStatus = (status: any) => {
       setRpcStatus(status);
-    });
-    // Auto-reconnect on app load if client ID is available
-    setTimeout(() => {
-      if (store?.onboardingComplete && store?.clientId && !rpcStatus.connected) {
-        connectDiscord(store.clientId);
-      }
-    }, 1000);
+      addLog(`RPC status changed: ${status.connected ? 'connected' : 'disconnected'}.`);
+    };
+    window.electron.on('rpc-status', handleRpcStatus);
+
+    return () => {
+      // No cleanup available for the current Electron bridge API.
+    };
   }, []);
 
   useEffect(() => {
@@ -256,7 +284,7 @@ function App() {
             <p>Build professional Windows Discord Rich Presence setups with onboarding, presets, and a live preview.</p>
           </div>
           <div className="header-actions">
-            <button onClick={() => connectDiscord(store?.clientId || tempClientId)}>{rpcStatus.connected ? 'Reconnect' : 'Connect'}</button>
+            <button disabled={isConnecting} onClick={() => connectDiscord(store?.clientId || tempClientId)}>{isConnecting ? 'Connecting...' : rpcStatus.connected ? 'Reconnect' : 'Connect'}</button>
             <button className="secondary" onClick={clearPresence}>Clear Presence</button>
           </div>
         </header>
@@ -472,6 +500,17 @@ function App() {
                   <p>Built for Windows Discord Rich Presence creators.</p>
                   <p>Copyright © 2026 kavaliersdelikt.</p>
                   <p>Engineered as RPC Manager, with onboarding, background tray support, presets, and live Discord RPC integration.</p>
+                </div>
+                <div className="card card-small">
+                  <h2>Debug Logs</h2>
+                  <p>Latest connection and RPC events are shown here for troubleshooting.</p>
+                  <div className="debug-log">
+                    {logs.length === 0 ? (
+                      <p className="empty-state">No debug logs yet. Try connecting to Discord or sending a presence.</p>
+                    ) : (
+                      logs.map((log, index) => <div key={index} className="debug-line">{log}</div>)
+                    )}
+                  </div>
                 </div>
               </section>
             )}

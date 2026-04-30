@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage, Menu, Tray } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import Store from 'electron-store';
@@ -39,6 +39,7 @@ function createMainWindow() {
     minWidth: 1000,
     minHeight: 660,
     show: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, '../../public/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -60,6 +61,7 @@ function createMainWindow() {
   });
 
   mainWindow.loadURL(getHtmlPath());
+  Menu.setApplicationMenu(null);
 }
 
 function createTray() {
