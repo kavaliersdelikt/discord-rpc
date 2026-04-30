@@ -1,0 +1,66 @@
+{
+  "name": "rpc-manager",
+  "displayName": "RPC Manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A modern Windows Discord Rich Presence maker and manager by kavaliersdelikt.",
+  "main": "dist/main/main.js",
+  "author": "kavaliersdelikt",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:renderer\" \"npm:dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "cross-env NODE_ENV=development wait-on http://localhost:5173 && electron .",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "tsc -p tsconfig.renderer.json && vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "package:win": "npm run build && electron-builder --win portable --x64",
+    "package:nsis": "npm run build && electron-builder --win nsis --x64",
+    "package:exe": "npm run package:win",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "discord-rpc": "^4.0.1",
+    "electron-store": "^8.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "concurrently": "^8.2.2",
+    "electron": "^26.4.1",
+    "electron-builder": "^24.6.0",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.0",
+    "cross-env": "^7.0.3",
+    "wait-on": "^7.0.3"
+  },
+  "build": {
+    "appId": "com.kavaliersdelikt.rpcmanager",
+    "productName": "RPC Manager",
+    "copyright": "Copyright © 2026 kavaliersdelikt",
+    "directories": {
+      "output": "dist/builder"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "public/icon.png",
+      "public/icon.svg"
+    ],
+    "asar": true,
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
