@@ -52,8 +52,9 @@
       "public/icon.svg"
     ],
     "asar": true,
+    "asarUnpack": ["**/*.dll", "**/*.node"],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": ["portable"],
       "icon": "public/icon.png"
     },
     "nsis": {

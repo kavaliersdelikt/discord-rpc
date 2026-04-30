@@ -97,16 +97,25 @@ function App() {
   };
 
   const connectDiscord = async (clientId: string) => {
+    const trimmed = clientId.trim();
+    if (!trimmed) {
+      setMessage('Enter a Discord application Client ID to connect.');
+      return false;
+    }
+    if (!/^\d{17,20}$/.test(trimmed)) {
+      setMessage('Invalid Client ID format. It should be a number with 17-20 digits.');
+      return false;
+    }
     setMessage('Connecting to Discord...');
-    const result = await window.electron.invoke('rpc/connect', clientId);
+    const result = await window.electron.invoke('rpc/connect', trimmed);
     if (result.success) {
-      setRpcStatus({ connected: true, clientId });
-      await saveStore({ clientId });
+      setRpcStatus({ connected: true, clientId: trimmed });
+      await saveStore({ clientId: trimmed });
       setMessage('Connected to Discord RPC. Your presence is ready to deploy.');
       return true;
     }
     setRpcStatus({ connected: false, clientId: '' });
-    setMessage(`Connection failed: ${result.error}`);
+    setMessage(`Connection failed: ${result.error}. Check your Client ID and ensure Discord is running.`);
     return false;
   };
 
@@ -204,6 +213,12 @@ function App() {
     window.electron.on('rpc-status', (status: any) => {
       setRpcStatus(status);
     });
+    // Auto-reconnect on app load if client ID is available
+    setTimeout(() => {
+      if (store?.onboardingComplete && store?.clientId && !rpcStatus.connected) {
+        connectDiscord(store.clientId);
+      }
+    }, 1000);
   }, []);
 
   useEffect(() => {
@@ -365,24 +380,29 @@ function App() {
                         </label>
                       </div>
                       <div className="button-grid">
-                        {activePreset.buttons.map((button, idx) => (
+                        {activePreset.buttons.slice(0, 2).map((button, idx) => (
                           <div key={idx} className="button-row">
                             <input value={button.label} onChange={(e) => {
                               const buttons = [...activePreset.buttons];
                               buttons[idx] = { ...buttons[idx], label: e.target.value };
                               updatePreset(activePreset.id, { buttons });
-                            }} placeholder="Button label" />
+                            }} maxLength={80} placeholder="Button label (max 80 chars)" />
                             <input value={button.url} onChange={(e) => {
                               const buttons = [...activePreset.buttons];
                               buttons[idx] = { ...buttons[idx], url: e.target.value };
                               updatePreset(activePreset.id, { buttons });
-                            }} placeholder="https://example.com" />
+                            }} maxLength={512} placeholder="https://example.com (max 512 chars)" />
                           </div>
                         ))}
-                        <button className="secondary" onClick={() => {
-                          const buttons = [...activePreset.buttons, { label: 'New action', url: 'https://example.com' }];
-                          updatePreset(activePreset.id, { buttons });
-                        }}>Add Button</button>
+                        {activePreset.buttons.length < 2 && (
+                          <button className="secondary" onClick={() => {
+                            const buttons = [...activePreset.buttons, { label: 'New action', url: 'https://example.com' }];
+                            updatePreset(activePreset.id, { buttons });
+                          }}>Add Button (max 2)</button>
+                        )}
+                        {activePreset.buttons.length >= 2 && (
+                          <small style={{gridColumn: '1 / -1', color: '#888'}}>Discord supports up to 2 buttons per presence</small>
+                        )}
                       </div>
                       <button className="primary" onClick={() => applyPresence(activePreset)}>Send This Presence</button>
                     </div>

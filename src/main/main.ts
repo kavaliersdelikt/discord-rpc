@@ -5,7 +5,7 @@ import Store from 'electron-store';
 import DiscordRPC from 'discord-rpc';
 
 const store = new Store({
-  name: 'presence-forge',
+  name: 'rpc-manager',
   defaults: {
     onboardingComplete: false,
     clientId: '',
@@ -80,7 +80,25 @@ async function updateDiscordState(presence: any) {
   }
 
   try {
-    await rpcClient.setActivity(presence);
+    const activity: any = {
+      details: presence.details,
+      state: presence.state,
+      startTimestamp: presence.startTimestamp,
+    };
+    
+    if (presence.largeImageKey) {
+      activity.largeImageKey = presence.largeImageKey;
+      activity.largeImageText = presence.largeImageText;
+    }
+    if (presence.smallImageKey) {
+      activity.smallImageKey = presence.smallImageKey;
+      activity.smallImageText = presence.smallImageText;
+    }
+    if (presence.buttons && presence.buttons.length > 0) {
+      activity.buttons = presence.buttons.slice(0, 2);
+    }
+    
+    await rpcClient.setActivity(activity);
     return { success: true };
   } catch (error) {
     return { success: false, error: `${error}` };
@@ -157,6 +175,10 @@ ipcMain.handle('file/selectImage', async () => {
 app.on('ready', () => {
   createMainWindow();
   createTray();
+  const settings = store.get('settings') as any;
+  if (settings?.autoLaunch) {
+    app.setLoginItemSettings({ openAtLogin: true });
+  }
 });
 
 app.on('activate', () => {
