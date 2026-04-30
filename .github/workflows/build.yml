@@ -31,14 +31,24 @@ jobs:
       - name: Package Windows executable
         run: npm run package:win
 
+      - name: Determine release version
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          MAJOR_MINOR=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
+          FULL_VERSION="v${MAJOR_MINOR}.${GITHUB_RUN_NUMBER}"
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "major_minor=$MAJOR_MINOR" >> $GITHUB_OUTPUT
+          echo "full_version=$FULL_VERSION" >> $GITHUB_OUTPUT
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
+          tag_name: ${{ steps.version.outputs.full_version }}
+          release_name: Release ${{ steps.version.outputs.full_version }}
           body: |
             Automatic build from commit ${{ github.sha }}
           draft: false
@@ -51,5 +61,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./dist/builder/win-unpacked/RPC Manager.exe
-          asset_name: RPC-Manager.exe
+          asset_name: RPC-Manager-${{ steps.version.outputs.full_version }}.exe
           asset_content_type: application/octet-stream

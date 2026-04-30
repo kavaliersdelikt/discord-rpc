@@ -1,7 +1,7 @@
 {
   "name": "rpc-manager",
   "displayName": "RPC Manager",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "A modern Windows Discord Rich Presence maker and manager by kavaliersdelikt.",
   "main": "dist/main/main.js",
