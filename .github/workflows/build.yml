@@ -46,8 +46,7 @@ jobs:
         shell: bash
         run: |
           BASE_VERSION=$(node -p "require('./package.json').version")
-          MAJOR_MINOR=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
-          FULL_VERSION="v${MAJOR_MINOR}.${GITHUB_RUN_NUMBER}"
+          FULL_VERSION="v${BASE_VERSION}"
           EXE_FILE="RPC-Manager-${BASE_VERSION}.exe"
           echo "full_version=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "exe_file=$EXE_FILE" >> $GITHUB_OUTPUT
