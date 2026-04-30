@@ -52,10 +52,26 @@
       "public/icon.svg"
     ],
     "asar": true,
-    "asarUnpack": ["**/*.dll", "**/*.node"],
+    "asarUnpack": ["**/*.{dll,node}"],
+    "extraResources": [
+      {
+        "from": "node_modules/electron/dist/",
+        "to": ".",
+        "filter": [
+          "ffmpeg.dll",
+          "icudtl.dat",
+          "libEGL.dll",
+          "libGLESv2.dll",
+          "vk_swiftshader.dll",
+          "vulkan-1.dll",
+          "d3dcompiler_47.dll"
+        ]
+      }
+    ],
     "win": {
       "target": ["portable"],
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "artifactName": "RPC-Manager-${version}.exe"
     },
     "nsis": {
       "oneClick": false,

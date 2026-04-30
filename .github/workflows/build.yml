@@ -45,9 +45,12 @@ jobs:
         id: version
         shell: bash
         run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
           MAJOR_MINOR=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
           FULL_VERSION="v${MAJOR_MINOR}.${GITHUB_RUN_NUMBER}"
+          EXE_FILE="RPC-Manager-${BASE_VERSION}.exe"
           echo "full_version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "exe_file=$EXE_FILE" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
@@ -68,6 +71,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/builder/win-unpacked/RPC Manager.exe
+          asset_path: ./dist/builder/${{ steps.version.outputs.exe_file }}
           asset_name: RPC-Manager-${{ steps.version.outputs.full_version }}.exe
           asset_content_type: application/octet-stream
